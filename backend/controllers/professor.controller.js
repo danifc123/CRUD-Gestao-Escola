@@ -1,57 +1,82 @@
 const pool = require("../models/db");
 
+// Buscar professores por nome
 const searchProfessores = async (req, res) => {
-  const { nome } = req.query; // Obtém o nome da query string
+  const { nome } = req.query;
 
   try {
     const result = await pool.query(
-      "SELECT * FROM professores WHERE nome ILIKE $1",
-      [`%${nome}%`] // Usando ILIKE para busca case-insensitive e operador de similaridade
+      "SELECT * FROM professores WHERE ativo = TRUE AND nome ILIKE $1",
+      [`%${nome}%`]
     );
 
-    res.json(result.rows);
+    res.json({ success: true, data: result.rows });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: "Erro ao buscar professores" });
+    res.status(500).json({ success: false, message: "Erro ao buscar professores" });
   }
 };
+
+// Listar todos os professores ativos
 const getProfessores = async (req, res) => {
   try {
-    const result = await pool.query("SELECT * FROM professores");
-    res.json(result.rows);
+    const result = await pool.query("SELECT * FROM professores WHERE ativo = TRUE");
+
+    res.json({ success: true, data: result.rows });
   } catch (error) {
-    res.status(500).json({ error: "Erro ao buscar professores" });
+    console.error(error);
+    res.status(500).json({ success: false, message: "Erro ao buscar professores" });
   }
 };
 
+// Criar um novo professor
 const createProfessor = async (req, res) => {
   const { nome } = req.body;
+
+  if (!nome) {
+    return res.status(400).json({ success: false, message: "Nome é obrigatório" });
+  }
+
   try {
-    await pool.query("INSERT INTO professores (nome) VALUES ($1)", [nome]);
-    res.status(201);
+    const result = await pool.query("INSERT INTO professores (nome, ativo) VALUES ($1, TRUE)", [nome]);
+
+    res.status(201).json({ success: true, message: "Professor criado com sucesso" });
   } catch (error) {
-    res.status(500).json({ error: "Erro ao criar professor" });
+    console.error(error);
+    res.status(500).json({ success: false, message: "Erro ao criar professor" });
   }
 };
 
+// Atualizar um professor
 const updateProfessor = async (req, res) => {
   const { id } = req.params;
   const { nome } = req.body;
 
+  if (!nome) {
+    return res.status(400).json({ success: false, message: "Nome é obrigatório" });
+  }
+
   try {
-    await pool.query("UPDATE professores SET nome = $1 WHERE id = $2", [
-      nome,
-      id,
-    ]);
-    res.status(200);
+    const result = await pool.query(
+      "UPDATE professores SET nome = $1 WHERE id = $2 AND ativo = TRUE",
+      [nome, id]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ success: false, message: "Professor não encontrado" });
+    }
+
+    res.status(200).json({ success: true, message: "Professor atualizado com sucesso" });
   } catch (error) {
-    console.log(error);
-    res.status(500).json({ error: error.message });
+    console.error(error);
+    res.status(500).json({ success: false, message: "Erro ao atualizar professor" });
   }
 };
 
+// Exclusão lógica de um professor
 const deleteProfessor = async (req, res) => {
   const { id } = req.params;
+
   try {
     const result = await pool.query(
       "UPDATE professores SET ativo = FALSE WHERE id = $1",
@@ -59,16 +84,20 @@ const deleteProfessor = async (req, res) => {
     );
 
     if (result.rowCount === 0) {
-      return res.status(404).json({ error: "Professor não encontrado" });
+      return res.status(404).json({ success: false, message: "Professor não encontrado" });
     }
 
-    res.status(200).json({ message: "Professor excluído com sucesso" });
+    res.status(200).json({ success: true, message: "Professor excluído com sucesso" });
   } catch (error) {
-    res.status(500).json({ error: "Erro ao excluir professor" });
+    console.error(error);
+    res.status(500).json({ success: false, message: "Erro ao excluir professor" });
   }
 };
+
+// Reativar um professor
 const reativarProfessor = async (req, res) => {
   const { id } = req.params;
+
   try {
     const result = await pool.query(
       "UPDATE professores SET ativo = TRUE WHERE id = $1",
@@ -76,14 +105,16 @@ const reativarProfessor = async (req, res) => {
     );
 
     if (result.rowCount === 0) {
-      return res.status(404).json({ error: "Professor não encontrado" });
+      return res.status(404).json({ success: false, message: "Professor não encontrado" });
     }
 
-    res.json("Professor reativado com sucesso");
+    res.status(200).json({ success: true, message: "Professor reativado com sucesso" });
   } catch (error) {
-    res.status(500).json({ error: "Erro ao reativar professor" });
+    console.error(error);
+    res.status(500).json({ success: false, message: "Erro ao reativar professor" });
   }
 };
+
 module.exports = {
   getProfessores,
   createProfessor,
